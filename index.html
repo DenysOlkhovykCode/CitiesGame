@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Socket.IO chat</title>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+    <div id="container" class="container">
+        <button id="create-game-btn" class="game-btn">Створити нову гру</button>
+        <button id="join-game-btn" class="game-btn">Приєднатися до існуючої</button>
+    </div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://code.jquery.com/jquery-1.11.1.js"></script>
+    <script>
+        $(function () {
+            var socket = io();
+            let gameId;
+
+            $('#create-game-btn').click(function (e) {
+                e.preventDefault();
+                socket.emit('create game', "create game");
+                $('#container').empty();
+                return false;
+            });
+
+            $('#join-game-btn').click(function (e) {
+                e.preventDefault();
+                $('#container').empty();
+                let inputField = $('<input>').attr({
+                    id: 'pin-code',
+                    type: 'text',
+                    placeholder: 'Введіть PIN-код гри',
+                    autocomplete: 'off'
+                });
+                let findGameBtn = $('<br> <button class="game-btn">').text('Знайти гру').click(function () {
+                    let pinCode = $('#pin-code').val();
+                    socket.emit("join game", pinCode);
+                });
+                $('#container').append(inputField, findGameBtn);
+                return false;
+            });
+
+            socket.on('game created', function (msg) {
+                $('#container').empty();
+                $('#container').append($('<div>').addClass('message').text('Гра створена. PIN-код: ' + msg));
+                gameId = msg;
+            });
+
+            socket.on('game joined', function (msg) {
+                gameId = msg;
+            });
+
+            socket.on('players count', function (msg) {
+                $('#container').empty();
+                $('#container').append($('<div>').addClass('message').text('PIN-код: ' + gameId));
+                $('#container').append($('<div>').addClass('message').text('Кількість гравців: ' + msg));
+            });
+
+            socket.on('game can start', function (msg) {
+                $('#container').empty();
+                $('#container').append($('<div>').addClass('message').text('PIN-код: ' + gameId));
+                $('#container').append($('<div>').addClass('message').text('Кількість гравців: ' + msg));
+                let playGameBtn = $('<button class="game-btn">').text('Грати').click(function () {
+                    socket.emit("start game", gameId);
+                });
+                $('#container').append(playGameBtn);
+            });
+
+            socket.on('game started', function (lastCity) {
+                $('#container').empty();
+                if (lastCity !== null) {
+                    $('#container').append($('<div>').addClass('message').html('Зараз не ваш хід. <br> Останнє місто: ' + lastCity));
+                }
+                else {
+                    $('#container').append($('<div>').addClass('message').html('Зараз не ваш хід'));
+                }
+            });
+
+            socket.on('turn', function (msg) {
+                $('#container').empty();
+                $('#container').append($('<div>').addClass('message').text('Ваш хід '));
+                if (typeof msg.lastCity !== "undefined" && msg.lastCity !== null) {
+                    $('#container').append($('<div>').addClass('message').html('Останнє місто: ' + msg.lastCity));
+                }
+
+                let inputField = $('<input>').attr({
+                    id: 'city',
+                    type: 'text',
+                    placeholder: 'Введіть місто',
+                    autocomplete: 'off'
+                });
+
+                let Btn = $('<br> <button class="game-btn">').text('Закінчити хід').click(function () {
+                    let city = $('#city').val();
+                    let data = {
+                        gameId: gameId,
+                        city: city,
+                    };
+                    socket.emit("end turn", data);
+                });
+
+                let Btn2 = $('<br> <button class="game-btn">').text('Здатися').click(function () {
+                    let data = {
+                        gameId: gameId,
+                        city: city,
+                    };
+                    socket.emit("lose", data);
+                });
+                $('#container').append(inputField, Btn, Btn2);
+
+                if (msg.message === 1) {
+                    $('#container').append($('<div>').addClass('error-message').text('Місто не знайдено.'));
+                } else if (msg.message === 2) {
+                    $('#container').append($('<div>').addClass('error-message').text('Це місто вже було назване.'));
+                } else if (msg.message === 3) {
+                    $('#container').append($('<div>').addClass('error-message').text('Нове місто не починається на останню букву попереднього.'));
+                }
+            });
+
+            socket.on('game won', function (msg) {
+                $('#container').empty();
+                $('#container').append($('<div>').addClass('message').text('Перемога'));
+            });
+
+            socket.on('game lose', function (msg) {
+                $('#container').empty();
+                $('#container').append($('<div>').addClass('message').text('Поразка'));
+            });
+
+            socket.on('game not found', function (msg) {
+                $('#container').empty();
+                $('#container').append($('<div>').addClass('message').text('Гру не знайдено'));
+                let inputField = $('<input>').attr({
+                    id: 'pin-code',
+                    type: 'text',
+                    placeholder: 'Введіть PIN-код гри',
+                    autocomplete: 'off'
+                });
+                let findGameBtn = $('<br> <button class="game-btn">').text('Знайти гру').click(function () {
+                    let pinCode = $('#pin-code').val();
+                    socket.emit("join game", pinCode);
+                });
+                $('#container').append(inputField, findGameBtn);
+            });
+        });
+    </script>
+</body>
+
+</html>
